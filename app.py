@@ -38,6 +38,9 @@ def calc_rmse(r, p):
 def fmt_s(v): return f"S/ {v:,.2f}"
 def fmt_pct(v): return f"{v:.2f}%"
 
+def pol_key(pol_name):
+    return str(pol_name).replace('(','').replace(')','').replace(',','_').replace(' ','_')
+
 def invalidar_resultados():
     for k in list(st.session_state.keys()):
         if k.startswith(('pron_','mc_pron_','sim_done','all_results','historial_kanban','ganadoras')):
@@ -731,7 +734,7 @@ with tab1:
                 with st.spinner(f'Evaluando modelos {nc}...'): np.random.seed(42); st.session_state[pk]=ejecutar_pronostico(serie,horizonte_fc)
             res=st.session_state[pk]
             c1,c2=st.columns([2.5,1])
-            with c1: st.plotly_chart(graf_pronostico(serie,res,nc),use_container_width=True)
+            with c1: st.plotly_chart(graf_pronostico(serie,res,nc),use_container_width=True,key=f"c_pron_1_{nc}")
             with c2:
                 st.dataframe(pd.DataFrame({'Mes':[d.strftime('%b-%Y') for d in serie.index],'Demanda':serie.values}),hide_index=True,use_container_width=True)
             st.markdown(f"**Ganador:** {res['modelo']} — MAPE: {res['mape']:.2f}% | RMSE: {res['rmse']:.1f} | Train: {res['n_train']}m | Test: {res['n_test']}m")
@@ -746,8 +749,8 @@ with tab1:
             st.dataframe(pd.DataFrame(vr),hide_index=True,use_container_width=True)
             st.dataframe(pd.DataFrame([{'#':i+1,'Método':r['Método'],'Familia':r['Familia'],'MAPE%':round(r['MAPE'],2),'RMSE':round(r['RMSE'],1)} for i,r in enumerate(res['ranking'][:10])]),hide_index=True,use_container_width=True)
             c1,c2=st.columns(2)
-            with c1: st.plotly_chart(graf_top10_val(serie,res,nc),use_container_width=True)
-            with c2: st.plotly_chart(graf_top10_fut(serie,res,nc,horizonte_fc),use_container_width=True)
+            with c1: st.plotly_chart(graf_top10_val(serie,res,nc),use_container_width=True,key=f"c_t10v_2_{nc}")
+            with c2: st.plotly_chart(graf_top10_fut(serie,res,nc,horizonte_fc),use_container_width=True,key=f"c_t10f_3_{nc}")
             # Forecast + MC
             ff=pd.date_range(serie.index[-1]+pd.DateOffset(months=1),periods=horizonte_fc,freq='MS')
             st.dataframe(pd.DataFrame({'Mes':[f.strftime('%b-%Y') for f in ff],'Pronóstico':[f'{v:,.1f}' for v in res['forecast']]}),hide_index=True,use_container_width=True)
@@ -768,7 +771,7 @@ with tab1:
             if i0['CVaR inf. 95%']<i0['P5']<i0['P50']<i0['P95']<i0['CVaR sup. 95%']:
                 st.success("✅ Pronóstico respaldado por MC. Orden estadístico validado.")
             else: st.warning("⚠️ Revisar dispersión del MC.")
-            st.plotly_chart(graf_mc_bandas(ff,mcp,res['forecast'],nc),use_container_width=True)
+            st.plotly_chart(graf_mc_bandas(ff,mcp,res['forecast'],nc),use_container_width=True,key=f"c_mcb_4_{nc}")
 
 
 # #####################################################################
@@ -857,13 +860,13 @@ with tab2:
         c1,c2,c3=st.columns(3)
         with c1:
             fig=go.Figure([go.Bar(x=[pn],y=[np.mean(mc[pn]['vp'])],name=pn,error_y=dict(type='data',array=[np.std(mc[pn]['vp'])])) for pn in mc])
-            fig.update_layout(title='VP media (und)',template='plotly_white',height=300,showlegend=False);st.plotly_chart(fig,use_container_width=True)
+            fig.update_layout(title='VP media (und)',template='plotly_white',height=300,showlegend=False);st.plotly_chart(fig,use_container_width=True,key=f"pol_fr_{nc}")
         with c2:
             fig=go.Figure([go.Bar(x=[pn],y=[np.mean(mc[pn]['fill_rate'])*100]) for pn in mc])
-            fig.update_layout(title='Fill rate (%)',template='plotly_white',height=300,showlegend=False,yaxis_ticksuffix='%');st.plotly_chart(fig,use_container_width=True)
+            fig.update_layout(title='Fill rate (%)',template='plotly_white',height=300,showlegend=False,yaxis_ticksuffix='%');st.plotly_chart(fig,use_container_width=True,key=f"pol_dq_{nc}")
         with c3:
             fig=go.Figure([go.Bar(x=[pn],y=[np.mean(mc[pn]['dias_quiebre'])]) for pn in mc])
-            fig.update_layout(title='Días quiebre',template='plotly_white',height=300,showlegend=False);st.plotly_chart(fig,use_container_width=True)
+            fig.update_layout(title='Días quiebre',template='plotly_white',height=300,showlegend=False);st.plotly_chart(fig,use_container_width=True,key=f"c_dq_5_{nc}")
 
         # Tabla costos (punto 13)
         st.markdown("**MC — Costos (S/)**")
@@ -884,19 +887,19 @@ with tab2:
             pols=list(mc.keys())
             for comp,color,nm in [('costo_ordenar','#1565C0','Ordenar'),('costo_mant','#2E7D32','Mantener'),('costo_vp','#E65100','VP'),('costo_bl','#C62828','BL')]:
                 fig.add_trace(go.Bar(name=nm,x=pols,y=[np.mean(mc[pn][comp]) for pn in pols],marker_color=color))
-            fig.update_layout(barmode='stack',title='Costos desagregados',template='plotly_white',height=340);st.plotly_chart(fig,use_container_width=True)
+            fig.update_layout(barmode='stack',title='Costos desagregados',template='plotly_white',height=340);st.plotly_chart(fig,use_container_width=True,key=f"c_stk_6_{nc}")
         with c2:
             fig=go.Figure()
             for pn in pols:
                 ct=mc[pn]['costo_total'];v95=np.percentile(ct,95)
                 fig.add_trace(go.Bar(name=pn,x=['CT medio','VaR 95%','CVaR 95%'],
                     y=[np.mean(ct),v95,np.mean(ct[ct>=v95])]))
-            fig.update_layout(barmode='group',title='CT vs VaR vs CVaR',template='plotly_white',height=340);st.plotly_chart(fig,use_container_width=True)
+            fig.update_layout(barmode='group',title='CT vs VaR vs CVaR',template='plotly_white',height=340);st.plotly_chart(fig,use_container_width=True,key=f"c_rsk_7_{nc}")
 
         # Histograms of winner
         c1,c2=st.columns(2)
-        with c1: st.plotly_chart(graf_mc_hist(mc[pol_gan]['costo_total'],nc,f'Costo total {pol_gan}','S/'),use_container_width=True)
-        with c2: st.plotly_chart(graf_mc_hist(mc[pol_gan]['fill_rate'],nc,f'Fill rate {pol_gan}','%'),use_container_width=True)
+        with c1: st.plotly_chart(graf_mc_hist(mc[pol_gan]['costo_total'],nc,f'Costo total {pol_gan}','S/'),use_container_width=True,key=f"c_mch_8_{nc}")
+        with c2: st.plotly_chart(graf_mc_hist(mc[pol_gan]['fill_rate'],nc,f'Fill rate {pol_gan}','%'),use_container_width=True,key=f"c_mch_9_{nc}")
 
         # Selección multicriterio (punto 14)
         st.success(f"🏆 {ganadoras[nc]['explicacion']}")
@@ -909,7 +912,7 @@ with tab2:
         # Consolidación y diente de sierra de la ganadora
         st.markdown(f"**Consolidación mensual — {pol_gan}**")
         st.dataframe(det[pol_gan]['mensual'],hide_index=True,use_container_width=True)
-        st.plotly_chart(graf_diente(det[pol_gan]['sim'],nc,cfg_gan,FECHA_INICIO_SIM),use_container_width=True)
+        st.plotly_chart(graf_diente(det[pol_gan]['sim'],nc,cfg_gan,FECHA_INICIO_SIM),use_container_width=True,key=f"c_dnt_10_{nc}")
 
 
 # #####################################################################
@@ -978,11 +981,11 @@ with tab3:
         with c1:
             fig=go.Figure([go.Bar(x=['AS-IS','TO-BE'],y=[precision_asis*100,precision_tobe*100],
                 marker_color=['#C62828','#2E7D32'],text=[f'{precision_asis:.1%}',f'{precision_tobe:.1%}'],textposition='auto')])
-            fig.update_layout(title='Precisión de requerimiento',template='plotly_white',height=300,yaxis_title='%');st.plotly_chart(fig,use_container_width=True)
+            fig.update_layout(title='Precisión de requerimiento',template='plotly_white',height=300,yaxis_title='%');st.plotly_chart(fig,use_container_width=True,key=f"c_prc_11_{nc}")
         with c2:
             fig=go.Figure([go.Bar(x=['AS-IS','TO-BE'],y=[costo_falla_6m,vp_s],
                 marker_color=['#C62828','#2E7D32'],text=[fmt_s(costo_falla_6m),fmt_s(vp_s)],textposition='auto')])
-            fig.update_layout(title='Costo falla / VP (6m)',template='plotly_white',height=300);st.plotly_chart(fig,use_container_width=True)
+            fig.update_layout(title='Costo falla / VP (6m)',template='plotly_white',height=300);st.plotly_chart(fig,use_container_width=True,key=f"c_cfv_12_{nc}")
 
     # ROI (punto 19)
     st.markdown("---");st.subheader("📊 Módulo ROI (editable)")
@@ -1049,7 +1052,7 @@ with tab4:
         <tr><td><b>{'S' if S_val else 's'}:</b> {S_val}</td><td><b>BL:</b> {f['bl_final']:,.1f}</td><td><b>VP:</b> {f['vp']:,.1f}</td></tr>
         <tr><td><b>Pedido:</b> {'Sí' if f['pedido'] else 'No'}</td><td><b>Cant:</b> {int(f['q_pedido'])}</td><td><b>Próx.rev:</b> {pr_f}</td></tr>
         </table><p style="margin:8px 0 0"><b>Acción:</b> {acc}</p></div>""",unsafe_allow_html=True)
-        st.plotly_chart(graf_kanban(sim,nc,SS,S_val or SS*2,umbral,T_val,dia_sel-1,FECHA_INICIO_SIM),use_container_width=True)
+        st.plotly_chart(graf_kanban(sim,nc,SS,S_val or SS*2,umbral,T_val,dia_sel-1,FECHA_INICIO_SIM),use_container_width=True,key=f"c_kan_13_{nc}")
         hist=construir_historial(sim,nc,SS,S_val or SS*2,T_val,margen,FECHA_INICIO_SIM);hists_k.append(hist)
         nv=hist['Estado'].str.contains('🟢').sum();na_k=hist['Estado'].str.contains('🟡').sum();nr=hist['Estado'].str.contains('🔴').sum()
         c1,c2,c3=st.columns(3)
@@ -1091,26 +1094,26 @@ with tab5:
             serie=series[nc]
             c1,c2=st.columns(2)
             with c1:
-                if pr: st.plotly_chart(graf_pronostico(serie,pr,nc),use_container_width=True)
+                if pr: st.plotly_chart(graf_pronostico(serie,pr,nc),use_container_width=True,key=f"c_pron_14_{nc}")
             with c2:
                 mcp=st.session_state.get(f'mc_pron_{nc}')
                 if mcp and pr:
                     ff=pd.date_range(serie.index[-1]+pd.DateOffset(months=1),periods=horizonte_fc,freq='MS')
-                    st.plotly_chart(graf_mc_bandas(ff,mcp,pr['forecast'],nc),use_container_width=True)
+                    st.plotly_chart(graf_mc_bandas(ff,mcp,pr['forecast'],nc),use_container_width=True,key=f"dash_hct_{nc}_{pol_key(pol_gan)}")
             c1,c2=st.columns(2)
-            with c1: st.plotly_chart(graf_diente(det_g['sim'],nc,cfg,FECHA_INICIO_SIM),use_container_width=True)
-            with c2: st.plotly_chart(graf_mc_hist(mc_g['costo_total'],nc,f'CT {pol_gan}','S/'),use_container_width=True)
+            with c1: st.plotly_chart(graf_diente(det_g['sim'],nc,cfg,FECHA_INICIO_SIM),use_container_width=True,key=f"c_dnt_15_{nc}")
+            with c2: st.plotly_chart(graf_mc_hist(mc_g['costo_total'],nc,f'CT {pol_gan}','S/'),use_container_width=True,key=f"c_mch_16_{nc}")
             c1,c2=st.columns(2)
             with c1:
                 fig=go.Figure([go.Bar(x=['AS-IS','TO-BE'],y=[prec_a*100,prec_t*100],marker_color=['#C62828','#2E7D32'],
                     text=[f'{prec_a:.1%}',f'{prec_t:.1%}'],textposition='auto')])
-                fig.update_layout(title='Precisión AS-IS vs TO-BE',template='plotly_white',height=300);st.plotly_chart(fig,use_container_width=True)
+                fig.update_layout(title='Precisión AS-IS vs TO-BE',template='plotly_white',height=300);st.plotly_chart(fig,use_container_width=True,key=f"c_prc_17_{nc}")
             with c2:
                 mc_all=all_results[nc]['mc']
                 fig=go.Figure()
                 for comp,color,nm in [('costo_ordenar','#1565C0','Ord'),('costo_mant','#2E7D32','Mant'),('costo_vp','#E65100','VP'),('costo_bl','#C62828','BL')]:
                     fig.add_trace(go.Bar(name=nm,x=list(mc_all.keys()),y=[np.mean(mc_all[pn][comp]) for pn in mc_all],marker_color=color))
-                fig.update_layout(barmode='stack',title='Costos por política',template='plotly_white',height=300);st.plotly_chart(fig,use_container_width=True)
+                fig.update_layout(barmode='stack',title='Costos por política',template='plotly_white',height=300);st.plotly_chart(fig,use_container_width=True,key=f"c_stk_18_{nc}")
 
             # Descarga HTML resumen (punto 17)
             html=f"""<html><head><meta charset='utf-8'><title>Dashboard {nc}</title>
