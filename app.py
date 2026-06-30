@@ -1005,7 +1005,7 @@ with tab3:
         host=st.number_input("Hosting/mes (S/)",value=0.0,min_value=0.0,step=10.0,key='r6')
         git=st.number_input("GitHub/año (S/)",value=0.0,min_value=0.0,step=50.0,key='r7')
         mant=st.number_input("Mantenimiento/año (S/)",value=0.0,min_value=0.0,step=100.0,key='r8')
-        ahorro_inst.number_input("Ahorro anual (S/)",value=max(0.0,round(float(ahorro_total)*2,0)),min_value=0.0,step=1000.0,key='r9')
+        ahorro_in=st.number_input("Ahorro anual (S/)",value=max(0.0,round(float(ahorro_total)*2,0)),min_value=0.0,step=1000.0,key='r9')
     inv=dev+cap+mig+otr+cont;cop=host*12+git+mant;ben=ahorro_in-cop
     roi_v=((ben-inv)/inv*100) if inv>0 else 0;pay=(inv/(ben/12)) if ben>0 else float('inf')
     c1,c2,c3,c4=st.columns(4)
